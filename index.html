@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>영상 피드백 편집기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0f1012;--panel:#17181b;--panel2:#1e2024;--line:#2a2c31;--text:#e9e9ec;--dim:#9a9ca3;--dimmer:#6b6e76;
+  --teal:#2ccfc0;--teal-d:#1a9f93;--orange:#f08a3c;--yellow:#f5c242;--blue:#4a8cff;--red:#ef5350;--green:#2fbf71;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:"Noto Sans KR",system-ui,sans-serif;font-size:14px;overflow:hidden}
+button{font:inherit;color:inherit;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer;white-space:nowrap}
+button:hover{border-color:#41444b;background:#25272c}
+button:disabled{opacity:.4;cursor:default}
+button.primary{background:var(--teal);color:#06201d;border-color:var(--teal);font-weight:700}
+button.primary:hover{background:#3fe0d1}
+button.outline{border-color:var(--orange);color:var(--orange);background:transparent}
+button.ghost{background:transparent;border-color:transparent}
+button.ghost:hover{background:var(--panel2)}
+input,select,textarea{font:inherit;color:var(--text);background:#111214;border:1px solid var(--line);border-radius:8px;padding:7px 9px}
+textarea{resize:vertical}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--teal)}
+input[type=range]{padding:0;accent-color:var(--teal);background:transparent;border:0}
+input[type=checkbox]{accent-color:var(--teal)}
+.app{display:grid;grid-template-rows:56px 1fr 300px;height:100vh}
+header{display:flex;align-items:center;gap:10px;padding:0 16px;border-bottom:1px solid var(--line);background:var(--panel)}
+header .logo{font-weight:900;font-size:17px;display:flex;align-items:center;gap:8px}
+header .logo span{color:var(--orange)}
+#projName{background:transparent;border:1px solid transparent;font-weight:700;font-size:15px;width:260px}
+#projName:hover{border-color:var(--line)}
+header .sp{flex:1}
+#saved{color:var(--dimmer);font-size:12px;min-width:44px}
+.mid{display:grid;grid-template-columns:270px 1fr 340px;min-height:0}
+.left,.right{background:var(--panel);min-height:0;display:flex;flex-direction:column}
+.left{border-right:1px solid var(--line)}
+.right{border-left:1px solid var(--line)}
+.tabs{display:flex;border-bottom:1px solid var(--line)}
+.tabs button{flex:1;border:0;border-radius:0;background:transparent;padding:12px 4px;color:var(--dim);border-bottom:2px solid transparent}
+.tabs button.on{color:var(--text);border-bottom-color:var(--teal);font-weight:700}
+.scroll{overflow:auto;padding:12px;flex:1;min-height:0}
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px}
+.card h4{margin:0 0 10px;font-size:13px;display:flex;align-items:center;gap:6px}
+.tag{font-size:11px;padding:2px 6px;border-radius:5px;background:#16352f;color:var(--teal);font-weight:700}
+.tag.b{background:#16264a;color:#7fb0ff}
+.row{display:grid;grid-template-columns:70px 1fr 46px;align-items:center;gap:8px;margin:8px 0}
+.row .v{color:var(--dim);font-size:12px;text-align:right}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips button{padding:5px 9px;font-size:12px;border-radius:20px}
+.hint{color:var(--dimmer);font-size:12px;line-height:1.5}
+.center{display:flex;flex-direction:column;min-width:0;min-height:0;background:#0b0c0e}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:14px;position:relative}
+.frame{position:relative;max-width:100%;max-height:100%;height:100%;background:#000;display:none}
+.frame video{width:100%;height:100%;display:block}
+#overlay{position:absolute;inset:0;cursor:crosshair}
+.drop{border:2px dashed #34363c;border-radius:14px;padding:40px;text-align:center;color:var(--dim);max-width:460px}
+.drop b{color:var(--text);font-size:17px;display:block;margin-bottom:8px}
+.stage.over .drop{border-color:var(--teal);color:var(--teal)}
+.pin{position:absolute;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;background:var(--yellow);color:#231a00;font-weight:900;font-size:12px;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 3px rgba(0,0,0,.45);pointer-events:auto;cursor:pointer}
+.box{position:absolute;border:2px solid var(--yellow);background:rgba(245,194,66,.12);border-radius:4px;pointer-events:none}
+.box .n{position:absolute;left:-2px;top:-22px;background:var(--yellow);color:#231a00;font-weight:900;font-size:11px;padding:1px 6px;border-radius:4px}
+.pin.pending,.box.pending{border-style:dashed;background:rgba(44,207,192,.15);border-color:var(--teal)}
+.pin.pending{background:var(--teal);color:#06201d}
+.pin.sel{background:#fff;}
+.bubble.lft{transform:translate(calc(-100% - 16px),-50%)}
+.bubble{position:absolute;width:max-content;max-width:min(240px,60%);background:rgba(15,16,18,.86);border:1px solid var(--yellow);color:#fff;font-size:12px;padding:5px 8px;border-radius:7px;pointer-events:none;transform:translate(16px,-50%)}
+.subtitle{position:absolute;left:5%;right:5%;text-align:center;font-weight:900;color:#fff;-webkit-text-stroke:0;text-shadow:0 0 4px #000,0 2px 6px #000,0 0 2px #000;pointer-events:none;line-height:1.25;white-space:pre-wrap}
+.cutflash{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;color:var(--red);font-weight:900;opacity:0;transition:opacity .3s}
+.controls{display:flex;align-items:center;gap:8px;padding:10px 14px;border-top:1px solid var(--line);background:var(--panel)}
+.controls .play{width:44px;height:44px;border-radius:50%;background:var(--teal);color:#06201d;border:0;font-size:18px;display:flex;align-items:center;justify-content:center;padding:0}
+#tc{font-variant-numeric:tabular-nums;font-size:15px;min-width:130px}
+.controls .sp{flex:1}
+.right .head{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 0}
+.right .head b{font-size:15px}
+#curT{color:var(--dim);font-variant-numeric:tabular-nums}
+.compose{padding:10px 14px;border-bottom:1px solid var(--line)}
+.compose textarea{width:100%;height:78px}
+.loc{font-size:12px;color:var(--dim);margin:6px 0;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.loc .chip{background:#16352f;color:var(--teal);padding:2px 8px;border-radius:12px}
+.loc .chip.none{background:#26282d;color:var(--dim)}
+.loc a{color:var(--dimmer);cursor:pointer;text-decoration:underline}
+.compose .btns{display:flex;gap:8px}
+.compose .btns .primary{flex:1}
+.clist{overflow:auto;flex:1;padding:10px 14px}
+.cc{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;cursor:pointer}
+.cc.sel{border-color:var(--yellow)}
+.cc.done{opacity:.5}
+.cc .top{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--dim)}
+.cc .num{background:var(--yellow);color:#231a00;font-weight:900;border-radius:5px;padding:0 6px}
+.cc .t{color:var(--text);font-variant-numeric:tabular-nums;font-weight:700}
+.cc .top .sp{flex:1}
+.cc textarea{width:100%;margin-top:7px;min-height:40px;height:auto;font-size:13px;background:transparent;border-color:transparent;padding:4px}
+.cc textarea:focus{background:#111214;border-color:var(--teal)}
+.cc .x{padding:2px 7px;font-size:12px}
+.empty{color:var(--dimmer);text-align:center;padding:30px 10px;line-height:1.7}
+/* timeline */
+.tl{background:var(--panel);border-top:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.tlbar{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);flex-wrap:nowrap;overflow-x:auto}
+.tlbar .sel{color:var(--teal);font-size:12px;font-variant-numeric:tabular-nums;min-width:150px}
+.tlbar .sp{flex:1}
+.tlbar label{font-size:12px;color:var(--dim);display:flex;align-items:center;gap:6px}
+.tlbody{display:flex;flex:1;min-height:0}
+.labels{width:120px;flex:none;border-right:1px solid var(--line)}
+.labels div{height:44px;display:flex;align-items:center;gap:8px;padding:0 12px;color:var(--dim);font-size:13px}
+.labels div:first-child{height:26px}
+.labels i{width:9px;height:9px;border-radius:2px;display:inline-block}
+#tlScroll{flex:1;overflow-x:auto;overflow-y:hidden;position:relative}
+#tlInner{position:relative;height:100%}
+#ruler{height:26px;position:relative;border-bottom:1px solid var(--line);cursor:pointer}
+.tick{position:absolute;top:0;height:100%;border-left:1px solid #34363c;font-size:11px;color:var(--dimmer);padding-left:4px;padding-top:5px;font-variant-numeric:tabular-nums}
+.trk{height:44px;position:relative;border-bottom:1px solid #222428}
+.trk.v{cursor:text}
+.mk{position:absolute;top:8px;height:28px;min-width:22px;background:var(--yellow);color:#231a00;border-radius:6px;font-size:11px;font-weight:900;display:flex;align-items:center;padding:0 6px;cursor:pointer;overflow:hidden;white-space:nowrap;box-shadow:0 0 0 2px var(--panel)}
+.mk.range{background:rgba(245,194,66,.35);color:#fff;border:1px solid var(--yellow)}
+.mk.sel{outline:2px solid #fff}
+.blk{position:absolute;top:6px;height:32px;border-radius:6px;font-size:12px;display:flex;align-items:center;padding:0 10px;overflow:hidden;white-space:nowrap;cursor:grab;user-select:none}
+.blk.sub{background:var(--blue);color:#fff}
+.blk.sub.sel{outline:2px solid #fff}
+.blk.cut{background:repeating-linear-gradient(45deg,rgba(239,83,80,.75) 0 6px,rgba(239,83,80,.45) 6px 12px);color:#fff;font-weight:700;top:2px;height:40px;z-index:2}
+.blk .h{position:absolute;top:0;bottom:0;width:7px;cursor:ew-resize;background:rgba(255,255,255,.25)}
+.blk .h.l{left:0}.blk .h.r{right:0}
+.blk .del{margin-left:auto;background:rgba(0,0,0,.35);border:0;padding:0 6px;border-radius:4px;font-size:11px;line-height:18px}
+.thumb{position:absolute;top:2px;height:40px;object-fit:cover;opacity:.8;pointer-events:none;border-right:1px solid #000}
+#wave{position:absolute;left:0;top:0;height:44px;pointer-events:none}
+#selbox{position:absolute;top:26px;bottom:0;background:rgba(44,207,192,.16);border-left:1px solid var(--teal);border-right:1px solid var(--teal);pointer-events:none;display:none;z-index:3}
+#playhead{position:absolute;top:0;bottom:0;width:2px;background:#fff;z-index:5;pointer-events:none}
+#playhead::before{content:"";position:absolute;top:0;left:-6px;border:7px solid transparent;border-top-color:#fff}
+/* modal */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:50}
+.modal.on{display:flex}
+.mbox{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:min(860px,94vw);max-height:90vh;display:flex;flex-direction:column}
+.mbox .mh{display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);gap:10px}
+.mbox .mh b{font-size:16px;flex:1}
+.mbox .mb{padding:14px 16px;overflow:auto;flex:1}
+.mbox .mf{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line);align-items:center}
+.mbox .mf .sp{flex:1}
+.mbox textarea{width:100%;height:46vh;font-family:ui-monospace,Menlo,monospace;font-size:12px}
+#sheetImg{max-width:100%;border-radius:8px;display:block;margin:0 auto}
+.toast{position:fixed;left:50%;bottom:320px;transform:translateX(-50%);background:#fff;color:#111;padding:9px 16px;border-radius:20px;font-weight:700;opacity:0;transition:opacity .25s;pointer-events:none;z-index:60}
+.toast.on{opacity:1}
+.kbd{display:grid;grid-template-columns:90px 1fr;gap:6px 10px;font-size:12px}
+.kbd span:nth-child(odd){font-family:ui-monospace,monospace;color:var(--teal)}
+.sublist .si{background:#111214;border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:8px}
+.sublist .si .tt{display:flex;gap:6px;align-items:center;font-size:12px;color:var(--dim);margin-bottom:6px}
+.sublist .si .tt .sp{flex:1}
+.sublist .si textarea{width:100%;height:46px;font-size:13px}
+.sublist .si input{width:64px;padding:3px 5px;font-size:12px}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo"><span>✳</span>피드백 편집기</div>
+    <input id="projName" value="새 영상" title="프로젝트 이름">
+    <button id="openBtn">영상 열기</button>
+    <input type="file" id="file" accept="video/*" hidden>
+    <div class="sp"></div>
+    <button class="ghost" id="undoBtn" title="되돌리기 (Ctrl+Z)">↶</button>
+    <button class="ghost" id="redoBtn" title="다시 하기 (Ctrl+Shift+Z)">↷</button>
+    <span id="saved"></span>
+    <button id="importBtn">불러오기</button>
+    <button class="outline" id="sheetBtn">주석 시트 이미지</button>
+    <button class="primary" id="sendBtn">클로드에게 보내기</button>
+  </header>
+
+  <div class="mid">
+    <aside class="left">
+      <div class="tabs">
+        <button class="on" data-tab="quick">빠른 조절</button>
+        <button data-tab="subs">자막</button>
+        <button data-tab="keys">단축키</button>
+      </div>
+      <div class="scroll" id="tab-quick">
+        <div class="card">
+          <h4><span class="tag">직접</span>소리·속도</h4>
+          <div class="row"><span>원본 소리</span><input type="range" id="vol" min="0" max="150" step="5"><span class="v" id="volV"></span></div>
+          <div class="row"><span>미리보기</span><select id="rate"><option value="0.5">0.5배</option><option value="0.75">0.75배</option><option value="1">1배</option><option value="1.25">1.25배</option><option value="1.5">1.5배</option><option value="2">2배</option></select><span></span></div>
+          <p class="hint">원본 소리 값은 Claude에게 "이 크기로 맞춰 달라"는 요청으로 전달돼요. 미리보기 속도는 전달되지 않아요.</p>
+        </div>
+        <div class="card">
+          <h4><span class="tag">직접</span>자막 모양</h4>
+          <div class="row"><span>크기</span><input type="range" id="subSize" min="25" max="110" step="1"><span class="v" id="subSizeV"></span></div>
+          <div class="row"><span>위치</span><select id="subPos"><option value="top">위</option><option value="middle">가운데</option><option value="bottom">아래</option></select><span></span></div>
+        </div>
+        <div class="card">
+          <h4><span class="tag">직접</span>자른 구간</h4>
+          <label class="hint" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="skipCuts"> 재생할 때 자른 구간 건너뛰기</label>
+          <p class="hint" style="margin-top:8px">아래 「바탕 영상」 줄을 드래그해 구간을 고른 뒤 <b>잘라내기</b>를 누르세요. 원본은 그대로이고, 지울 구간만 기록돼요.</p>
+        </div>
+        <div class="card">
+          <h4><span class="tag b">고르기</span>자주 쓰는 지시</h4>
+          <div class="chips" id="chips"></div>
+          <p class="hint" style="margin-top:8px">누르면 오른쪽 주석 칸에 들어가요.</p>
+        </div>
+      </div>
+      <div class="scroll" id="tab-subs" hidden>
+        <button class="primary" id="addSubBtn" style="width:100%;margin-bottom:12px">+ 지금 위치에 자막 (2초)</button>
+        <div class="sublist" id="subList"></div>
+      </div>
+      <div class="scroll" id="tab-keys" hidden>
+        <div class="card"><div class="kbd">
+          <span>Space</span><span>재생 / 멈춤</span>
+          <span>← →</span><span>1초 이동 (Shift: 0.1초)</span>
+          <span>, .</span><span>한 프레임 이동</span>
+          <span>I / O</span><span>선택 구간 시작 / 끝</span>
+          <span>X</span><span>선택 구간 잘라내기</span>
+          <span>S</span><span>선택 구간(또는 지금)에 자막</span>
+          <span>C</span><span>주석 칸으로 이동</span>
+          <span>Esc</span><span>선택·핀 해제</span>
+          <span>Delete</span><span>고른 자막·주석 지우기</span>
+          <span>Ctrl+Z</span><span>되돌리기</span>
+        </div></div>
+        <div class="card"><h4>화면에 표시하기</h4>
+          <p class="hint">영상 위를 <b>클릭</b>하면 그 자리에 핀, <b>드래그</b>하면 영역 상자가 생겨요. 그다음 오른쪽에 코멘트를 쓰고 Enter.<br><br>타임라인에서 구간을 고른 상태로 주석을 달면 "0:08~0:10 구간" 주석이 돼요.</p>
+        </div>
+      </div>
+    </aside>
+
+    <section class="center">
+      <div class="stage" id="stage">
+        <div class="drop" id="drop"><b>영상을 여기에 끌어다 놓으세요</b>또는 위의 「영상 열기」<br><br><span class="hint">영상은 이 브라우저 안에서만 열려요. 어디에도 올라가지 않아요.</span></div>
+        <div class="frame" id="frame">
+          <video id="video" playsinline preload="auto"></video>
+          <div id="subOverlay" class="subtitle"></div>
+          <div id="overlay"></div>
+          <div class="cutflash" id="cutflash">✂ 건너뜀</div>
+        </div>
+      </div>
+      <div class="controls">
+        <button id="back1">−1초</button>
+        <button id="backF" title="이전 프레임">◀|</button>
+        <button class="play" id="playBtn">▶</button>
+        <button id="fwdF" title="다음 프레임">|▶</button>
+        <button id="fwd1">+1초</button>
+        <span id="tc">0:00.0 / 0:00.0</span>
+        <span class="sp"></span>
+        <span class="hint">화면 클릭 = 핀 · 드래그 = 영역</span>
+      </div>
+    </section>
+
+    <aside class="right">
+      <div class="head"><b>주석</b><span id="curT">0:00.0</span></div>
+      <div class="compose">
+        <div class="loc" id="loc"></div>
+        <textarea id="cText" placeholder="지금 화면에 대한 코멘트 — Enter = 달기, Shift+Enter = 줄바꿈"></textarea>
+        <div class="btns" style="margin-top:8px"><button class="primary" id="addC">여기에 달기</button></div>
+      </div>
+      <div class="clist" id="clist"></div>
+    </aside>
+  </div>
+
+  <section class="tl">
+    <div class="tlbar">
+      <span class="sel" id="selInfo">구간 선택 없음</span>
+      <button id="cutBtn">✂ 잘라내기</button>
+      <button id="subSelBtn">자막 넣기</button>
+      <button id="clearSel">선택 해제</button>
+      <span class="sp"></span>
+      <label>확대 <input type="range" id="zoom" min="1" max="12" step="0.5" value="1"></label>
+    </div>
+    <div class="tlbody">
+      <div class="labels">
+        <div></div>
+        <div><i style="background:var(--yellow)"></i>주석</div>
+        <div><i style="background:var(--blue)"></i>자막</div>
+        <div><i style="background:#8a8d95"></i>바탕 영상</div>
+        <div><i style="background:var(--green)"></i>소리</div>
+      </div>
+      <div id="tlScroll">
+        <div id="tlInner">
+          <div id="ruler"></div>
+          <div class="trk" id="trkC"></div>
+          <div class="trk" id="trkS"></div>
+          <div class="trk v" id="trkV"><div id="thumbs"></div><div id="cuts"></div></div>
+          <div class="trk" id="trkA"><canvas id="wave"></canvas></div>
+          <div id="selbox"></div>
+          <div id="playhead"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div class="modal" id="sendModal"><div class="mbox">
+  <div class="mh"><b>클로드에게 보내기</b><button class="ghost" data-close>✕</button></div>
+  <div class="mb">
+    <p class="hint" style="margin-top:0">아래 내용을 복사해 Claude 채팅(또는 Claude Code)에 붙여넣으세요. 시간은 모두 <b>원본 영상 기준</b>이고, 위치는 말(「오른쪽 위」)과 퍼센트 좌표를 함께 적었어요. 「주석 시트 이미지」를 같이 올리면 더 정확해요.</p>
+    <textarea id="report" readonly></textarea>
+  </div>
+  <div class="mf"><label class="hint" style="display:flex;gap:6px;align-items:center"><input type="checkbox" id="onlyOpen" checked> 완료 체크한 주석은 빼기</label><span class="sp"></span><button id="copyJson">JSON만 복사</button><button class="primary" id="copyReport">전체 복사</button></div>
+</div></div>
+
+<div class="modal" id="sheetModal"><div class="mbox">
+  <div class="mh"><b>주석 시트 이미지</b><button class="ghost" data-close>✕</button></div>
+  <div class="mb"><p class="hint" id="sheetMsg" style="margin-top:0">만드는 중…</p><img id="sheetImg" alt="주석이 표시된 장면 모음"></div>
+  <div class="mf"><span class="hint">복사가 안 되면 이미지를 우클릭 → 「이미지 복사」</span><span class="sp"></span><button class="primary" id="copySheet">이미지 복사</button></div>
+</div></div>
+
+<div class="modal" id="importModal"><div class="mbox">
+  <div class="mh"><b>불러오기</b><button class="ghost" data-close>✕</button></div>
+  <div class="mb"><p class="hint" style="margin-top:0">예전에 「클로드에게 보내기」로 복사한 글 전체나 JSON을 붙여넣으면 주석·자막·자른 구간을 되살려요. Claude가 고쳐 준 JSON도 돼요.</p><textarea id="importText" placeholder="여기에 붙여넣기"></textarea></div>
+  <div class="mf"><span class="hint" id="importMsg"></span><span class="sp"></span><button class="primary" id="doImport">불러오기</button></div>
+</div></div>
+
+<div class="toast" id="toast"></div>
+<video id="v2" muted preload="auto" style="display:none"></video>
+
+<script>
+(()=>{
+const $=s=>document.querySelector(s);
+const video=$('#video'), v2=$('#v2');
+const FPS=30;
+const CHIPS=['글자 키워줘','글자 줄여줘','여기 컷 빼줘','0.5초 당겨줘','0.5초 늦춰줘','자막 오타','색 바꿔줘','강조 효과 넣어줘','효과음 넣어줘','배경음 줄여줘','이 장면 더 길게','전환 부드럽게'];
+
+const blank=()=>({version:1,meta:{name:'',duration:0,width:0,height:0},comments:[],cuts:[],subs:[],settings:{volume:100,subSize:55,subPos:'bottom',skipCuts:true}});
+let S=blank(), undoStack=[], redoStack=[];
+let fileObj=null, storeKey=null, uid=Date.now();
+let pending=null;           // {x,y,w,h} in 0..1
+let sel=null;               // {a,b}
+let selItem=null;           // {kind:'c'|'s', id}
+let pps=50, thumbs=[], peaks=null;
+const id=()=>(uid++).toString(36);
+
+/* ---------- utils ---------- */
+const fmt=t=>{t=Math.max(0,t||0);const m=Math.floor(t/60),s=t-m*60;return m+':'+(s<10?'0':'')+s.toFixed(1)};
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const dur=()=>S.meta.duration||0;
+function where(x,y){const h=x<.34?'왼쪽':x<.66?'가운데':'오른쪽';const v=y<.34?'위':y<.66?'가운데':'아래';return (h==='가운데'&&v==='가운데')?'화면 정중앙':(v==='가운데'?h+' 가운데':h==='가운데'?'가운데 '+v:h+' '+v)}
+function locText(c){if(c.x==null)return '화면 전체';const p=Math.round;let s=where(c.x+(c.w||0)/2,c.y+(c.h||0)/2);return c.w?`${s} 영역`:s}
+function toast(m){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('on'),1600)}
+async function copyText(txt){try{await navigator.clipboard.writeText(txt);toast('복사했어요');return true}catch(e){const ta=$('#report');toast('자동 복사가 막혔어요 — 글을 선택해 Ctrl+C');return false}}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- state ---------- */
+function snap(){return JSON.stringify(S)}
+function mutate(fn,pre){undoStack.push(pre||snap());if(undoStack.length>200)undoStack.shift();redoStack=[];fn();save();renderAll()}
+function undo(){if(!undoStack.length)return;redoStack.push(snap());S=JSON.parse(undoStack.pop());save();renderAll();toast('되돌렸어요')}
+function redo(){if(!redoStack.length)return;undoStack.push(snap());S=JSON.parse(redoStack.pop());save();renderAll()}
+function save(){if(!storeKey)return;try{localStorage.setItem(storeKey,snap());$('#saved').textContent='저장됨'}catch(e){$('#saved').textContent=''}}
+function sortAll(){S.comments.sort((a,b)=>a.t-b.t);S.subs.sort((a,b)=>a.start-b.start);S.cuts.sort((a,b)=>a.start-b.start)}
+
+/* ---------- load video ---------- */
+$('#openBtn').onclick=()=>$('#file').click();
+$('#file').onchange=e=>{if(e.target.files[0])load(e.target.files[0])};
+const stage=$('#stage');
+stage.addEventListener('dragover',e=>{e.preventDefault();stage.classList.add('over')});
+stage.addEventListener('dragleave',()=>stage.classList.remove('over'));
+stage.addEventListener('drop',e=>{e.preventDefault();stage.classList.remove('over');const f=[...e.dataTransfer.files].find(f=>f.type.startsWith('video'));if(f)load(f);else toast('영상 파일을 놓아 주세요')});
+
+function load(f){
+  fileObj=f;const url=URL.createObjectURL(f);
+  video.src=url;v2.src=url;
+  video.onloadedmetadata=()=>{
+    storeKey='fbedit:'+f.name+':'+f.size;
+    let restored=false;
+    try{const old=localStorage.getItem(storeKey);if(old){S=JSON.parse(old);restored=true}}catch(e){}
+    if(!restored){S=blank();S.meta.projectName=f.name.replace(/\.[^.]+$/,'')}
+    S.meta.name=f.name;S.meta.duration=video.duration;S.meta.width=video.videoWidth;S.meta.height=video.videoHeight;
+    undoStack=[];redoStack=[];sel=null;pending=null;
+    $('#projName').value=S.meta.projectName||f.name;
+    $('#drop').style.display='none';const fr=$('#frame');fr.style.display='block';
+    fr.style.aspectRatio=video.videoWidth+'/'+video.videoHeight;
+    fitFrame();
+    $('#zoom').value=1;
+    renderAll();save();
+    if(restored)toast('이 영상의 이전 작업을 이어서 열었어요');
+    thumbs=[];peaks=null;buildThumbs();buildWave(f);
+  };
+}
+function fitFrame(){const fr=$('#frame');if(!S.meta.width)return;const st=stage.getBoundingClientRect();const ar=S.meta.width/S.meta.height;let h=st.height-28,w=h*ar;if(w>st.width-28){w=st.width-28;h=w/ar}fr.style.width=w+'px';fr.style.height=h+'px'}
+window.addEventListener('resize',()=>{fitFrame();renderTimeline()});
+
+function seekP(v,t){return new Promise(r=>{let done=false;const h=()=>{if(done)return;done=true;v.removeEventListener('seeked',h);r()};v.addEventListener('seeked',h);setTimeout(h,2000);v.currentTime=Math.min(t,(v.duration||t)-0.01)})}
+async function buildThumbs(){
+  const d=dur();if(!d)return;const n=Math.min(40,Math.max(6,Math.ceil(d/1.5)));const step=d/n;
+  const c=document.createElement('canvas');const h=80;c.height=h;c.width=Math.round(h*S.meta.width/S.meta.height)||45;const g=c.getContext('2d');
+  if(v2.readyState<1)await new Promise(r=>v2.addEventListener('loadedmetadata',r,{once:true}));
+  const src=v2.src;
+  for(let i=0;i<n;i++){if(v2.src!==src)return;await seekP(v2,i*step+step*.1);try{g.drawImage(v2,0,0,c.width,c.height);thumbs.push({t:i*step,d:step,url:c.toDataURL('image/jpeg',.6)})}catch(e){return}
+    if(i%5===4||i===n-1)renderThumbs()}
+}
+async function buildWave(f){
+  try{const buf=await f.arrayBuffer();const AC=window.AudioContext||window.webkitAudioContext;const ac=new AC();const ab=await ac.decodeAudioData(buf);
+    const ch=ab.getChannelData(0);const N=2000;const blk=Math.floor(ch.length/N);peaks=new Float32Array(N);let mx=0;
+    for(let i=0;i<N;i++){let m=0;for(let j=0;j<blk;j+=8){const v=Math.abs(ch[i*blk+j]);if(v>m)m=v}peaks[i]=m;if(m>mx)mx=m}
+    if(mx>0)for(let i=0;i<N;i++)peaks[i]/=mx;ac.close&&ac.close();drawWave()}catch(e){peaks=null;drawWave()}
+}
+
+/* ---------- player ---------- */
+$('#playBtn').onclick=togglePlay;video.onclick=null;
+function togglePlay(){if(!video.src)return;if(video.paused){video.play().catch(()=>{})}else video.pause()}
+video.onplay=()=>$('#playBtn').textContent='❚❚';video.onpause=()=>$('#playBtn').textContent='▶';
+const seek=t=>{if(!dur())return;video.currentTime=clamp(t,0,dur())};
+$('#back1').onclick=()=>seek(video.currentTime-1);$('#fwd1').onclick=()=>seek(video.currentTime+1);
+$('#backF').onclick=()=>{video.pause();seek(video.currentTime-1/FPS)};$('#fwdF').onclick=()=>{video.pause();seek(video.currentTime+1/FPS)};
+
+/* settings */
+const vol=$('#vol'),rate=$('#rate'),subSize=$('#subSize'),subPos=$('#subPos'),skip=$('#skipCuts');
+let setPre=null;
+[vol,subSize].forEach(el=>{el.addEventListener('pointerdown',()=>setPre=snap());el.addEventListener('input',()=>{readSettings();renderSettings()});el.addEventListener('change',()=>{const p=setPre||undefined;setPre=null;mutate(readSettings,p)})});
+subPos.onchange=skip.onchange=()=>mutate(readSettings);
+rate.onchange=()=>video.playbackRate=+rate.value;rate.value='1';
+function readSettings(){S.settings.volume=+vol.value;S.settings.subSize=+subSize.value;S.settings.subPos=subPos.value;S.settings.skipCuts=skip.checked}
+function renderSettings(){const st=S.settings;vol.value=st.volume;$('#volV').textContent=st.volume+'%';video.volume=clamp(st.volume/100,0,1);subSize.value=st.subSize;$('#subSizeV').textContent=st.subSize;subPos.value=st.subPos;skip.checked=st.skipCuts}
+
+/* chips */
+$('#chips').innerHTML=CHIPS.map(c=>`<button>${c}</button>`).join('');
+$('#chips').onclick=e=>{if(e.target.tagName!=='BUTTON')return;const ta=$('#cText');ta.value=(ta.value?ta.value.trim()+' ':'')+e.target.textContent;ta.focus()};
+
+/* tabs */
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b));['quick','subs','keys'].forEach(k=>$('#tab-'+k).hidden=k!==b.dataset.tab)});
+
+/* ---------- overlay: pins ---------- */
+const ov=$('#overlay');let drawStart=null;
+ov.addEventListener('pointerdown',e=>{if(!dur()||e.target.classList.contains('pin'))return;const r=ov.getBoundingClientRect();drawStart={x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height,r};video.pause();ov.setPointerCapture(e.pointerId)});
+ov.addEventListener('pointermove',e=>{if(!drawStart)return;const r=drawStart.r;const x=clamp((e.clientX-r.left)/r.width,0,1),y=clamp((e.clientY-r.top)/r.height,0,1);const w=Math.abs(x-drawStart.x),h=Math.abs(y-drawStart.y);pending=(w>.02||h>.02)?{x:Math.min(x,drawStart.x),y:Math.min(y,drawStart.y),w,h}:{x:drawStart.x,y:drawStart.y};lastOv='';renderLoc()});
+ov.addEventListener('pointerup',e=>{if(!drawStart)return;if(!pending||(pending.w==null&&Math.hypot(pending.x-drawStart.x,pending.y-drawStart.y)>.001))pending={x:drawStart.x,y:drawStart.y};drawStart=null;lastOv='';renderLoc();$('#cText').focus()});
+
+function renderLoc(){const L=$('#loc');let s='';
+  if(pending)s+=`<span class="chip">📍 ${locText(pending)}</span><a id="clrPin">핀 지우기</a>`;else s+=`<span class="chip none">위치 없음 — 화면을 클릭해 표시</span>`;
+  if(sel)s+=`<span class="chip">⏱ ${fmt(sel.a)}–${fmt(sel.b)} 구간</span>`;
+  L.innerHTML=s;const c=$('#clrPin');if(c)c.onclick=()=>{pending=null;lastOv='';renderLoc()}}
+
+/* ---------- comments ---------- */
+function addComment(){const txt=$('#cText').value.trim();if(!txt){toast('코멘트를 써 주세요');return}if(!dur())return;
+  const c={id:id(),t:sel?sel.a:+video.currentTime.toFixed(2),text:txt,done:false};
+  if(sel)c.t2=+sel.b.toFixed(2);
+  if(pending)Object.assign(c,{x:+pending.x.toFixed(3),y:+pending.y.toFixed(3)},pending.w!=null?{w:+pending.w.toFixed(3),h:+pending.h.toFixed(3)}:{});
+  mutate(()=>{S.comments.push(c);sortAll()});$('#cText').value='';pending=null;selItem={kind:'c',id:c.id};lastOv='';renderLoc();renderComments();toast('주석을 달았어요')}
+$('#addC').onclick=addComment;
+$('#cText').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();addComment()}if(e.key==='Escape'){e.target.blur()}});
+
+function cIndex(c){return S.comments.indexOf(c)+1}
+function renderComments(){const L=$('#clist');
+  if(!S.comments.length){L.innerHTML=`<div class="empty">${dur()?'아직 주석이 없어요.<br>고칠 장면에서 멈추고<br>화면을 클릭한 뒤 코멘트를 쓰세요.':'영상을 먼저 열어 주세요.'}</div>`;return}
+  L.innerHTML=S.comments.map((c,i)=>`<div class="cc ${selItem&&selItem.kind==='c'&&selItem.id===c.id?'sel':''} ${c.done?'done':''}" data-id="${c.id}">
+    <div class="top"><span class="num">${i+1}</span><span class="t">${fmt(c.t)}${c.t2!=null?'–'+fmt(c.t2):''}</span><span>${locText(c)}</span><span class="sp"></span>
+    <label title="완료"><input type="checkbox" data-act="done" ${c.done?'checked':''}></label><button class="ghost x" data-act="del" title="지우기">✕</button></div>
+    <textarea data-act="text" rows="${Math.min(5,Math.ceil(c.text.length/26)||1)}">${esc(c.text)}</textarea></div>`).join('');
+}
+$('#clist').addEventListener('click',e=>{const card=e.target.closest('.cc');if(!card)return;const c=S.comments.find(x=>x.id===card.dataset.id);if(!c)return;const act=e.target.dataset.act;
+  if(act==='del'){mutate(()=>S.comments=S.comments.filter(x=>x!==c));return}
+  if(act==='done'){mutate(()=>c.done=e.target.checked);return}
+  if(act==='text')return;
+  selItem={kind:'c',id:c.id};video.pause();seek(c.t);renderComments();renderTimeline();lastOv=''});
+$('#clist').addEventListener('change',e=>{if(e.target.dataset.act!=='text')return;const c=S.comments.find(x=>x.id===e.target.closest('.cc').dataset.id);const v=e.target.value.trim();if(c&&v!==c.text)mutate(()=>c.text=v)});
+
+/* ---------- subtitles ---------- */
+function addSub(a,b){if(!dur())return;a=clamp(a,0,dur());b=clamp(b,a+.2,dur());const s={id:id(),start:+a.toFixed(2),end:+b.toFixed(2),text:'새 자막'};mutate(()=>{S.subs.push(s);sortAll()});selItem={kind:'s',id:s.id};
+  document.querySelector('[data-tab=subs]').click();renderSubs();setTimeout(()=>{const t=document.querySelector(`.si[data-id="${s.id}"] textarea`);if(t){t.focus();t.select()}},30)}
+$('#addSubBtn').onclick=()=>addSub(video.currentTime,video.currentTime+2);
+function renderSubs(){const L=$('#subList');if(!S.subs.length){L.innerHTML='<div class="empty">자막이 없어요.<br>위 버튼이나 타임라인 구간 선택 후 「자막 넣기」.</div>';return}
+  L.innerHTML=S.subs.map(s=>`<div class="si" data-id="${s.id}"><div class="tt"><input type="number" step="0.1" data-k="start" value="${s.start}">–<input type="number" step="0.1" data-k="end" value="${s.end}">초<span class="sp"></span><button class="ghost x" data-act="go">▶</button><button class="ghost x" data-act="del">✕</button></div><textarea data-k="text">${esc(s.text)}</textarea></div>`).join('')}
+$('#subList').addEventListener('change',e=>{const k=e.target.dataset.k;if(!k)return;const s=S.subs.find(x=>x.id===e.target.closest('.si').dataset.id);if(!s)return;mutate(()=>{if(k==='text')s.text=e.target.value;else{s[k]=clamp(+e.target.value,0,dur());if(s.end<=s.start)s.end=+(s.start+.2).toFixed(2)}sortAll()})});
+$('#subList').addEventListener('click',e=>{const a=e.target.dataset.act;if(!a)return;const s=S.subs.find(x=>x.id===e.target.closest('.si').dataset.id);if(a==='del')mutate(()=>S.subs=S.subs.filter(x=>x!==s));if(a==='go'){seek(s.start);video.play().catch(()=>{})}});
+
+/* ---------- selection / cuts ---------- */
+function setSel(a,b){if(a==null){sel=null}else{if(b<a)[a,b]=[b,a];sel={a:+clamp(a,0,dur()).toFixed(2),b:+clamp(b,0,dur()).toFixed(2)};if(sel.b-sel.a<.05)sel=null}renderSel();renderLoc()}
+function renderSel(){const box=$('#selbox');if(!sel){box.style.display='none';$('#selInfo').textContent='구간 선택 없음 — 「바탕 영상」 줄을 드래그';return}box.style.display='block';box.style.left=sel.a*pps+'px';box.style.width=(sel.b-sel.a)*pps+'px';$('#selInfo').textContent=`선택 ${fmt(sel.a)} – ${fmt(sel.b)} (${(sel.b-sel.a).toFixed(1)}초)`}
+function doCut(){if(!sel){toast('먼저 구간을 고르세요');return}const c={id:id(),start:sel.a,end:sel.b};mutate(()=>{S.cuts.push(c);mergeCuts()});setSel(null);toast('잘라낼 구간으로 표시했어요')}
+function mergeCuts(){sortAll();const out=[];for(const c of S.cuts){const l=out[out.length-1];if(l&&c.start<=l.end+.01){l.end=Math.max(l.end,c.end)}else out.push({...c})}S.cuts=out}
+$('#cutBtn').onclick=doCut;
+$('#subSelBtn').onclick=()=>{if(sel){addSub(sel.a,sel.b);setSel(null)}else addSub(video.currentTime,video.currentTime+2)};
+$('#clearSel').onclick=()=>setSel(null);
+
+/* ---------- timeline ---------- */
+const tlS=$('#tlScroll'),inner=$('#tlInner');
+$('#zoom').oninput=()=>{const center=(tlS.scrollLeft+tlS.clientWidth/2)/pps;renderTimeline();tlS.scrollLeft=center*pps-tlS.clientWidth/2};
+function computePps(){const d=dur()||30;pps=(tlS.clientWidth-24)/d*(+$('#zoom').value)}
+function renderTimeline(){computePps();const d=dur();const W=Math.max(tlS.clientWidth,d*pps+24);inner.style.width=W+'px';
+  // ruler
+  const steps=[.1,.25,.5,1,2,5,10,15,30,60,120];const st=steps.find(s=>s*pps>=64)||300;let h='';
+  if(d)for(let t=0;t<=d+1e-6;t+=st){h+=`<div class="tick" style="left:${t*pps}px">${st<1?fmt(t):fmt(t).replace(/\.0$/,'')}</div>`}
+  $('#ruler').innerHTML=h;
+  // comments
+  $('#trkC').innerHTML=S.comments.map((c,i)=>{const w=c.t2!=null?Math.max(22,(c.t2-c.t)*pps):null;const s=selItem&&selItem.kind==='c'&&selItem.id===c.id;
+    return `<div class="mk ${w?'range':''} ${s?'sel':''}" data-id="${c.id}" style="left:${c.t*pps-(w?0:11)}px;${w?'width:'+w+'px':''}" title="${esc(c.text)}">${i+1}${w&&w>60?' '+esc(c.text.slice(0,30)):''}</div>`}).join('');
+  // subs
+  $('#trkS').innerHTML=S.subs.map(s=>`<div class="blk sub ${selItem&&selItem.kind==='s'&&selItem.id===s.id?'sel':''}" data-kind="s" data-id="${s.id}" style="left:${s.start*pps}px;width:${Math.max(8,(s.end-s.start)*pps)}px"><span class="h l" data-h="l"></span>${esc(s.text)}<span class="h r" data-h="r"></span></div>`).join('');
+  // cuts
+  $('#cuts').innerHTML=S.cuts.map(c=>`<div class="blk cut" data-kind="k" data-id="${c.id}" style="left:${c.start*pps}px;width:${Math.max(8,(c.end-c.start)*pps)}px"><span class="h l" data-h="l"></span>✂ ${(c.end-c.start).toFixed(1)}초<button class="del" data-del="${c.id}" title="되살리기">✕</button><span class="h r" data-h="r"></span></div>`).join('');
+  renderThumbs();drawWave();renderSel();updatePlayhead();
+}
+function renderThumbs(){$('#thumbs').innerHTML=thumbs.map(t=>`<img class="thumb" src="${t.url}" style="left:${t.t*pps}px;width:${t.d*pps}px">`).join('')}
+function drawWave(){const cv=$('#wave');const d=dur();const W=Math.min(16000,Math.max(1,Math.round(d*pps)));cv.width=W;cv.height=44;cv.style.width=(d*pps)+'px';const g=cv.getContext('2d');g.clearRect(0,0,W,44);
+  if(!peaks){g.fillStyle='#4b4e55';g.font='12px sans-serif';if(d)g.fillText(fileObj?'소리 파형 읽는 중… (소리가 없으면 비어 있어요)':'',8,26);return}
+  g.fillStyle='#2fbf71';const N=peaks.length;for(let x=0;x<W;x++){const i=Math.floor(x/W*N);const h=Math.max(1,peaks[i]*38*(S.settings.volume/100>1?1:S.settings.volume/100||.02));g.fillRect(x,22-h/2,1,h)}}
+function updatePlayhead(){$('#playhead').style.left=(video.currentTime||0)*pps+'px'}
+
+const xToT=clientX=>{const r=inner.getBoundingClientRect();return clamp((clientX-r.left)/pps,0,dur())};
+let drag=null;
+inner.addEventListener('pointerdown',e=>{if(!dur())return;
+  const del=e.target.dataset.del;if(del){mutate(()=>S.cuts=S.cuts.filter(c=>c.id!==del));return}
+  const mk=e.target.closest('.mk');if(mk){const c=S.comments.find(x=>x.id===mk.dataset.id);selItem={kind:'c',id:c.id};video.pause();seek(c.t);renderComments();renderTimeline();lastOv='';const card=document.querySelector(`.cc[data-id="${c.id}"]`);card&&card.scrollIntoView({block:'nearest'});return}
+  const blk=e.target.closest('.blk');
+  if(blk){const kind=blk.dataset.kind;const arr=kind==='s'?S.subs:S.cuts;const o=arr.find(x=>x.id===blk.dataset.id);if(kind==='s'){selItem={kind:'s',id:o.id};}
+    drag={type:'blk',o,mode:e.target.dataset.h||'move',t0:xToT(e.clientX),s0:o.start,e0:o.end,pre:snap(),moved:false};e.preventDefault();return}
+  if(e.target.closest('#trkV')){const t=xToT(e.clientX);drag={type:'sel',a:t};seek(t);setSel(null);e.preventDefault();return}
+  drag={type:'scrub'};video.pause();seek(xToT(e.clientX));e.preventDefault();
+});
+window.addEventListener('pointermove',e=>{if(!drag)return;const t=xToT(e.clientX);
+  if(drag.type==='scrub'){seek(t)}
+  else if(drag.type==='sel'){setSel(drag.a,t)}
+  else{const o=drag.o,dt=t-drag.t0;drag.moved=drag.moved||Math.abs(dt)>.02;const len=drag.e0-drag.s0;
+    if(drag.mode==='move'){o.start=+clamp(drag.s0+dt,0,dur()-len).toFixed(2);o.end=+(o.start+len).toFixed(2)}
+    else if(drag.mode==='l'){o.start=+clamp(drag.s0+dt,0,o.end-.1).toFixed(2)}
+    else{o.end=+clamp(drag.e0+dt,o.start+.1,dur()).toFixed(2)}
+    renderTimeline()}
+});
+window.addEventListener('pointerup',()=>{if(!drag)return;const d=drag;drag=null;
+  if(d.type==='blk'){if(d.moved){undoStack.push(d.pre);redoStack=[];if(d.o.text==null)mergeCuts();sortAll();save();renderAll()}else{seek(d.o.start);renderAll()}}
+});
+
+/* ---------- render loop ---------- */
+let lastOv='';
+function overlayHTML(t){let h='';const near=.6;
+  S.comments.forEach((c,i)=>{if(c.x==null)return;const on=c.t2!=null?(t>=c.t-.05&&t<=c.t2+.05):Math.abs(t-c.t)<near;const s=selItem&&selItem.kind==='c'&&selItem.id===c.id;if(!on&&!(s&&video.paused&&Math.abs(t-c.t)<.05))return;
+    if(c.w!=null)h+=`<div class="box" style="left:${c.x*100}%;top:${c.y*100}%;width:${c.w*100}%;height:${c.h*100}%"><span class="n">${i+1}</span></div><div class="bubble ${c.x+c.w>.6?'lft':''}" style="left:${(c.x+c.w>.6?c.x:c.x+c.w)*100}%;top:${(c.y+c.h/2)*100}%">${esc(c.text)}</div>`;
+    else h+=`<div class="pin ${s?'sel':''}" style="left:${c.x*100}%;top:${c.y*100}%">${i+1}</div><div class="bubble ${c.x>.6?'lft':''}" style="left:${c.x*100}%;top:${c.y*100}%">${esc(c.text)}</div>`});
+  if(pending){h+=pending.w!=null?`<div class="box pending" style="left:${pending.x*100}%;top:${pending.y*100}%;width:${pending.w*100}%;height:${pending.h*100}%"></div>`:`<div class="pin pending" style="left:${pending.x*100}%;top:${pending.y*100}%">+</div>`}
+  return h}
+let lastSub=null;
+function tick(){const t=video.currentTime||0;
+  if(dur()){
+    if(!video.paused&&S.settings.skipCuts){const c=S.cuts.find(c=>t>=c.start&&t<c.end-.02);if(c){video.currentTime=Math.min(c.end,dur());const f=$('#cutflash');f.style.opacity=1;setTimeout(()=>f.style.opacity=0,350)}}
+    $('#tc').textContent=fmt(t)+' / '+fmt(dur());$('#curT').textContent=fmt(t);updatePlayhead();
+    if(!video.paused){const x=t*pps;if(x>tlS.scrollLeft+tlS.clientWidth-40||x<tlS.scrollLeft)tlS.scrollLeft=x-60}
+    const h=overlayHTML(t);if(h!==lastOv){ov.innerHTML=h;lastOv=h}
+    const s=S.subs.find(s=>t>=s.start&&t<s.end);const key=s?s.id+s.text+S.settings.subSize+S.settings.subPos+$('#frame').clientHeight:'';
+    if(key!==lastSub){lastSub=key;const so=$('#subOverlay');if(s){so.textContent=s.text;so.style.display='block';const fh=$('#frame').clientHeight;so.style.fontSize=(fh*S.settings.subSize/1000)+'px';so.style.top=so.style.bottom='';so.style.transform='';
+      if(S.settings.subPos==='top')so.style.top='9%';else if(S.settings.subPos==='middle'){so.style.top='50%';so.style.transform='translateY(-50%)'}else so.style.bottom='11%'}else so.style.display='none'}
+  }
+  requestAnimationFrame(tick)}
+requestAnimationFrame(tick);
+
+function renderAll(){renderSettings();renderComments();renderSubs();renderTimeline();renderLoc();lastOv='';lastSub=null;$('#undoBtn').disabled=!undoStack.length;$('#redoBtn').disabled=!redoStack.length}
+$('#undoBtn').onclick=undo;$('#redoBtn').onclick=redo;
+$('#projName').onchange=e=>mutate(()=>S.meta.projectName=e.target.value.trim());
+
+/* ---------- keyboard ---------- */
+document.addEventListener('keydown',e=>{const tg=e.target.tagName;const typing=tg==='TEXTAREA'||(tg==='INPUT'&&e.target.type!=='range'&&e.target.type!=='checkbox')||tg==='SELECT';
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'&&!typing){e.preventDefault();e.shiftKey?redo():undo();return}
+  if(typing)return;
+  const k=e.key;
+  if(k===' '){e.preventDefault();togglePlay()}
+  else if(k==='ArrowLeft'){e.preventDefault();seek(video.currentTime-(e.shiftKey?.1:1))}
+  else if(k==='ArrowRight'){e.preventDefault();seek(video.currentTime+(e.shiftKey?.1:1))}
+  else if(k===','){video.pause();seek(video.currentTime-1/FPS)}
+  else if(k==='.'){video.pause();seek(video.currentTime+1/FPS)}
+  else if(k==='i'||k==='I'){const t=video.currentTime;setSel(t,sel&&sel.b>t?sel.b:Math.min(dur(),t+1))}
+  else if(k==='o'||k==='O'){const t=video.currentTime;setSel(sel?sel.a:Math.max(0,t-1),t)}
+  else if(k==='x'||k==='X')doCut();
+  else if(k==='s'||k==='S')$('#subSelBtn').click();
+  else if(k==='c'||k==='C'){e.preventDefault();$('#cText').focus()}
+  else if(k==='Escape'){pending=null;setSel(null);selItem=null;lastOv='';renderAll();document.querySelectorAll('.modal.on').forEach(m=>m.classList.remove('on'))}
+  else if((k==='Delete'||k==='Backspace')&&selItem){const it=selItem;selItem=null;mutate(()=>{if(it.kind==='c')S.comments=S.comments.filter(x=>x.id!==it.id);else S.subs=S.subs.filter(x=>x.id!==it.id)})}
+});
+
+/* ---------- modals ---------- */
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>b.closest('.modal').classList.remove('on'));
+document.querySelectorAll('.modal').forEach(m=>m.addEventListener('pointerdown',e=>{if(e.target===m)m.classList.remove('on')}));
+
+function exportData(onlyOpen){const cs=S.comments.map((c,i)=>({no:i+1,...c})).filter(c=>!onlyOpen||!c.done);
+  return {tool:'feedback-editor',version:1,video:{file:S.meta.name,duration:+dur().toFixed(2),width:S.meta.width,height:S.meta.height},timebase:'원본 영상 기준 초(seconds)',coords:'x,y,w,h = 화면 너비·높이 대비 0~1 비율, 왼쪽 위가 (0,0)',
+    comments:cs.map(c=>{const o={no:c.no,time:+c.t.toFixed(2)};if(c.t2!=null)o.time_end=c.t2;o.position=locText(c);if(c.x!=null){o.x=c.x;o.y=c.y;if(c.w!=null){o.w=c.w;o.h=c.h}}o.text=c.text;if(c.done)o.done=true;return o}),
+    edits:{cuts:S.cuts.map(c=>({start:c.start,end:c.end})),subtitles:S.subs.map(s=>({start:s.start,end:s.end,text:s.text})),subtitle_style:{size:S.settings.subSize,position:S.settings.subPos},original_audio_volume_percent:S.settings.volume}}}
+function buildReport(){const onlyOpen=$('#onlyOpen').checked;const D=exportData(onlyOpen);const L=[];
+  L.push(`# 영상 수정 요청 — ${S.meta.projectName||S.meta.name}`);
+  L.push(`원본: ${S.meta.name} · 길이 ${fmt(dur())} · ${S.meta.width}×${S.meta.height}`);
+  L.push(`※ 모든 시간은 원본 영상 기준이에요(자른 구간 적용 전). 위치는 화면 비율(%)이에요.`);L.push('');
+  L.push(`## 1. 주석 (${D.comments.length}개, 시간순)`);
+  if(!D.comments.length)L.push('- (없음)');
+  D.comments.forEach(c=>{const t=c.time_end!=null?`${fmt(c.time)}–${fmt(c.time_end)}`:fmt(c.time);let pos=c.position;if(c.x!=null)pos+=c.w!=null?` (x ${Math.round(c.x*100)}–${Math.round((c.x+c.w)*100)}%, y ${Math.round(c.y*100)}–${Math.round((c.y+c.h)*100)}%)`:` (x ${Math.round(c.x*100)}%, y ${Math.round(c.y*100)}%)`;L.push(`${c.no}. [${t}] ${pos} — ${c.text}`)});
+  L.push('');L.push('## 2. 편집기에서 직접 바꾼 값 — 이대로 반영해 주세요');
+  L.push(`- 잘라낼 구간: ${S.cuts.length?S.cuts.map(c=>`${fmt(c.start)}–${fmt(c.end)}`).join(', '):'없음'}`);
+  if(S.cuts.length){const kept=dur()-S.cuts.reduce((a,c)=>a+c.end-c.start,0);L.push(`  (자르고 나면 길이 약 ${fmt(kept)})`)}
+  L.push(`- 원본 소리 크기: ${S.settings.volume}%`);
+  L.push(`- 자막 ${S.subs.length}개 · 크기 ${S.settings.subSize}(화면 높이의 ${(S.settings.subSize/10).toFixed(1)}%) · 위치 ${{top:'위',middle:'가운데',bottom:'아래'}[S.settings.subPos]}`);
+  S.subs.forEach(s=>L.push(`  - ${fmt(s.start)}–${fmt(s.end)}: ${s.text.replace(/\n/g,' / ')}`));
+  L.push('');L.push('## 3. 기계용 데이터 (JSON)');L.push('```json');L.push(JSON.stringify(D,null,2));L.push('```');
+  L.push('');L.push('수정한 뒤 바뀐 점을 주석 번호별로 알려 주세요.');
+  return L.join('\n')}
+$('#sendBtn').onclick=()=>{if(!dur()){toast('영상을 먼저 열어 주세요');return}$('#report').value=buildReport();$('#sendModal').classList.add('on')};
+$('#onlyOpen').onchange=()=>$('#report').value=buildReport();
+$('#copyReport').onclick=async()=>{const ok=await copyText($('#report').value);if(!ok){$('#report').focus();$('#report').select()}};
+$('#copyJson').onclick=async()=>{const txt=JSON.stringify(exportData($('#onlyOpen').checked),null,2);const ok=await copyText(txt);if(!ok){$('#report').value=txt;$('#report').select()}};
+
+/* import */
+$('#importBtn').onclick=()=>{if(!dur()){toast('먼저 같은 영상을 열어 주세요');return}$('#importMsg').textContent='';$('#importModal').classList.add('on')};
+$('#doImport').onclick=()=>{let txt=$('#importText').value;const m=txt.match(/```json\s*([\s\S]*?)```/);if(m)txt=m[1];
+  let D;try{D=JSON.parse(txt)}catch(e){$('#importMsg').textContent='JSON을 읽지 못했어요';return}
+  mutate(()=>{
+    if(Array.isArray(D.comments))S.comments=D.comments.map(c=>{const o={id:id(),t:+c.time||+c.t||0,text:c.text||'',done:!!c.done};if(c.time_end!=null||c.t2!=null)o.t2=+(c.time_end??c.t2);if(c.x!=null){o.x=+c.x;o.y=+c.y;if(c.w!=null){o.w=+c.w;o.h=+c.h}}return o});
+    const E=D.edits||D;
+    if(Array.isArray(E.cuts))S.cuts=E.cuts.map(c=>({id:id(),start:+c.start,end:+c.end}));
+    const subs=E.subtitles||E.subs;if(Array.isArray(subs))S.subs=subs.map(s=>({id:id(),start:+s.start,end:+s.end,text:s.text||''}));
+    if(E.subtitle_style){if(E.subtitle_style.size)S.settings.subSize=+E.subtitle_style.size;if(E.subtitle_style.position)S.settings.subPos=E.subtitle_style.position}
+    if(E.original_audio_volume_percent!=null)S.settings.volume=+E.original_audio_volume_percent;
+    sortAll();mergeCuts()});
+  $('#importModal').classList.remove('on');$('#importText').value='';toast('불러왔어요')};
+
+/* sheet image */
+let sheetCanvas=null;
+$('#sheetBtn').onclick=async()=>{if(!dur()){toast('영상을 먼저 열어 주세요');return}const cs=S.comments.filter(c=>!c.done);if(!cs.length){toast('완료 안 된 주석이 없어요');return}
+  $('#sheetModal').classList.add('on');$('#sheetImg').removeAttribute('src');$('#sheetMsg').textContent='장면을 모으는 중…';
+  const portrait=S.meta.height>S.meta.width;const cols=Math.min(cs.length,portrait?4:3);const fw=portrait?300:420;const fh=Math.round(fw*S.meta.height/S.meta.width);const cap=78,pad=16;
+  const rows=Math.ceil(cs.length/cols);const c=document.createElement('canvas');c.width=cols*(fw+pad)+pad;c.height=rows*(fh+cap+pad)+pad+44;const g=c.getContext('2d');
+  g.fillStyle='#16171a';g.fillRect(0,0,c.width,c.height);g.fillStyle='#fff';g.font='bold 18px "Noto Sans KR",sans-serif';g.fillText(`${S.meta.projectName||S.meta.name} — 주석 ${cs.length}개`,pad,30);
+  for(let k=0;k<cs.length;k++){const cm=cs[k];const n=S.comments.indexOf(cm)+1;const col=k%cols,row=Math.floor(k/cols);const x0=pad+col*(fw+pad),y0=44+pad+row*(fh+cap+pad);
+    await seekP(v2,cm.t);try{g.drawImage(v2,x0,y0,fw,fh)}catch(e){}
+    g.lineWidth=3;g.strokeStyle='#f5c242';g.fillStyle='#f5c242';
+    if(cm.x!=null){if(cm.w!=null){g.strokeRect(x0+cm.x*fw,y0+cm.y*fh,cm.w*fw,cm.h*fh)}else{g.beginPath();g.arc(x0+cm.x*fw,y0+cm.y*fh,14,0,Math.PI*2);g.fill();g.fillStyle='#231a00';g.font='bold 13px sans-serif';g.textAlign='center';g.fillText(n,x0+cm.x*fw,y0+cm.y*fh+5);g.textAlign='left'}}
+    g.font='bold 13px sans-serif';const lbl=`#${n} ${fmt(cm.t)}`;g.fillStyle='#f5c242';g.fillRect(x0,y0,g.measureText(lbl).width+12,24);g.fillStyle='#231a00';g.fillText(lbl,x0+6,y0+17);
+    g.fillStyle='#e9e9ec';g.font='14px "Noto Sans KR",sans-serif';const words=cm.text.split('');let line='',ly=y0+fh+22,lines=0;
+    for(const ch of words){if(g.measureText(line+ch).width>fw-4||ch==='\n'){g.fillText(line,x0,ly);ly+=19;line=ch==='\n'?'':ch;if(++lines>=3){line='';break}}else line+=ch}if(line)g.fillText(line,x0,ly);
+    g.fillStyle='#9a9ca3';g.font='12px "Noto Sans KR",sans-serif';g.fillText(locText(cm),x0,y0+fh+cap-6);
+    $('#sheetMsg').textContent=`장면 모으는 중… ${k+1}/${cs.length}`}
+  sheetCanvas=c;$('#sheetImg').src=c.toDataURL('image/png');$('#sheetMsg').textContent='이 이미지를 「클로드에게 보내기」 글과 함께 채팅에 올리세요. 번호가 주석 번호와 같아요.'};
+$('#copySheet').onclick=async()=>{if(!sheetCanvas)return;try{const blob=await new Promise(r=>sheetCanvas.toBlob(r,'image/png'));await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);toast('이미지를 복사했어요')}catch(e){toast('복사가 막혔어요 — 이미지를 우클릭해 복사하세요')}};
+
+renderAll();
+})();
+</script>
+</body>
+</html>
